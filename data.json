@@ -1,0 +1,56 @@
+{
+  "categories": [
+    {
+      "id": "fruits",
+      "name": "水果类",
+      "words": [
+        {
+          "id": 1,
+          "word": "苹果",
+          "dialects": {
+            "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-5s.mp3",
+            "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-6s.mp3"
+          }
+        },
+        {
+          "id": 2,
+          "word": "香蕉",
+          "dialects": {
+            "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-9s.mp3",
+            "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-12s.mp3"
+          }
+        },
+        {
+          "id": 3,
+          "word": "橙子",
+          "dialects": {
+            "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-15s.mp3",
+            "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-19s.mp3"
+          }
+        }
+      ]
+    },
+    {
+      "id": "animals",
+      "name": "动物类",
+      "words": [
+        {
+          "id": 1,
+          "word": "猫",
+          "dialects": {
+            "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-9s.mp3",
+            "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-12s.mp3"
+          }
+        },
+        {
+          "id": 2,
+          "word": "狗",
+          "dialects": {
+            "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-15s.mp3",
+            "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-19s.mp3"
+          }
+        }
+      ]
+    }
+  ]
+}
