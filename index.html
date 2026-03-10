@@ -1,153 +1,1850 @@
-// 简单的Node.js服务器，用于方言学习平台的数据读写
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
-
-// 服务器配置
-const PORT = 3000;
-const HOST = 'localhost';
-
-// MIME类型映射
-const mimeTypes = {
-    '.html': 'text/html',
-    '.js': 'application/javascript',
-    '.css': 'text/css',
-    '.json': 'application/json',
-    '.mp3': 'audio/mpeg',
-    '.wav': 'audio/wav',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.svg': 'image/svg+xml'
-};
-
-// 创建HTTP服务器
-const server = http.createServer((req, res) => {
-    const parsedUrl = url.parse(req.url, true);
-    const pathname = parsedUrl.pathname;
-    
-    console.log(`请求: ${req.method} ${pathname}`);
-    
-    // 处理API请求
-    if (pathname === '/api/data' && req.method === 'GET') {
-        handleGetData(req, res);
-        return;
-    }
-    
-    if (pathname === '/api/data' && req.method === 'POST') {
-        handleSaveData(req, res);
-        return;
-    }
-    
-    // 处理静态文件请求
-    let filePath = '.' + pathname;
-    if (filePath === './') {
-        filePath = './index.html';
-    }
-    
-    const extname = String(path.extname(filePath)).toLowerCase();
-    const contentType = mimeTypes[extname] || 'application/octet-stream';
-    
-    fs.readFile(filePath, (error, content) => {
-        if (error) {
-            if (error.code == 'ENOENT') {
-                res.writeHead(404, { 'Content-Type': 'text/html' });
-                res.end('<h1>404 Not Found</h1>', 'utf-8');
-            } else {
-                res.writeHead(500);
-                res.end('Sorry, check with the site admin for error: ' + error.code + ' .\n');
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>雷惠语言通</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- SheetJS库用于Excel文件处理 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#f97316',
+                        accent: '#10b981',
+                        neutral: '#6b7280',
+                        'neutral-light': '#f3f4f6',
+                        'neutral-dark': '#374151'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'card': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        'card-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                    }
+                }
             }
-        } else {
-            res.writeHead(200, { 'Content-Type': contentType });
-            res.end(content, 'utf-8');
         }
-    });
-});
-
-// 处理获取数据请求
-function handleGetData(req, res) {
-    const dataPath = './data.json';
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .category-button {
+                @apply block w-full text-left px-4 py-3 text-gray-700 hover:bg-primary hover:bg-opacity-10 hover:text-primary rounded-lg transition-all duration-200;
+            }
+            .category-button.active {
+                @apply bg-primary bg-opacity-10 text-primary font-medium;
+            }
+            .audio-button {
+                @apply flex items-center justify-center w-11 h-11 rounded-full bg-white border border-gray-300 text-gray-600 hover:bg-primary hover:text-white hover:border-primary transition-all duration-200 shadow-sm;
+            }
+            .audio-button.playing {
+                @apply bg-primary text-white border-primary;
+            }
+            .audio-button:disabled {
+                @apply opacity-50 cursor-not-allowed;
+            }
+            .btn-primary {
+                @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary;
+            }
+            .btn-secondary {
+                @apply inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary;
+            }
+            .btn-success {
+                @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-accent hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent;
+            }
+            .btn-danger {
+                @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500;
+            }
+            .table-header {
+                @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+            }
+            .table-cell {
+                @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+            }
+            .input-field {
+                @apply mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm;
+            }
+            .toast {
+                @apply fixed top-4 right-4 z-50 max-w-sm bg-white border border-gray-200 rounded-lg shadow-lg p-4 transform transition-all duration-300 translate-x-full opacity-0;
+            }
+            .toast.show {
+                @apply translate-x-0 opacity-100;
+            }
+            .toast-success {
+                @apply border-green-200 bg-green-50;
+            }
+            .toast-error {
+                @apply border-red-200 bg-red-50;
+            }
+            .toast-warning {
+                @apply border-yellow-200 bg-yellow-50;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 主容器 -->
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <!-- 侧边栏 -->
+        <aside class="w-full md:w-64 bg-white shadow-md md:min-h-screen">
+            <!-- 标题 -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h1 class="text-xl font-bold text-gray-900">雷惠语言通</h1>
+                <p class="text-sm text-gray-600 mt-1">雷州人学惠来话</p>
+            </div>
+            
+            <!-- 分类导航 -->
+            <div class="p-4">
+                <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">分类</h2>
+                <nav id="category-nav" class="space-y-1">
+                    <!-- 分类按钮将通过JavaScript动态生成 -->
+                </nav>
+                
+                <!-- 添加分类按钮 -->
+                <button id="add-category-button" class="mt-4 w-full btn-primary">
+                    <i class="fa fa-plus mr-2"></i> 添加分类
+                </button>
+            </div>
+            
+            <!-- 数据管理 -->
+            <div class="p-4 border-t border-gray-200">
+                <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">数据管理</h2>
+                <div class="space-y-2">
+                    <button id="save-data-button" class="w-full btn-success">
+                        <i class="fa fa-save mr-2"></i> 保存数据
+                    </button>
+                    <button id="export-data-button" class="w-full btn-secondary">
+                        <i class="fa fa-download mr-2"></i> 导出数据
+                    </button>
+                    <div class="relative">
+                        <input type="file" id="import-data-input" accept=".json" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <button class="w-full btn-secondary">
+                            <i class="fa fa-upload mr-2"></i> 导入JSON
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <input type="file" id="import-excel-input" accept=".xlsx,.xls" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <button class="w-full btn-secondary">
+                            <i class="fa fa-file-excel-o mr-2"></i> 导入Excel文件
+                        </button>
+                    </div>
+                    <button id="show-excel-template" class="w-full text-sm text-primary hover:text-primary/80 focus:outline-none">
+                        <i class="fa fa-info-circle mr-1"></i> Excel模板说明
+                    </button>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- 主内容区 -->
+        <main class="flex-1 flex flex-col">
+            <!-- 顶部工具栏 -->
+            <header class="bg-white shadow-sm">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between items-center h-16">
+                        <div class="flex items-center">
+                            <h2 class="text-lg font-medium text-gray-900">词汇管理</h2>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <!-- 搜索框 -->
+                            <div class="relative">
+                                <input type="text" id="search-input" placeholder="搜索词汇..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fa fa-search text-gray-400"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- 内容区域 -->
+            <div class="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+                <div class="max-w-7xl mx-auto">
+                    <!-- 分类内容卡片 -->
+                    <div class="bg-white shadow rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                            <h2 id="category-title" class="text-lg font-medium text-gray-900">水果类</h2>
+                            <button id="manage-words-button" class="btn-primary">
+                                <i class="fa fa-cog mr-1"></i> 管理词汇
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th scope="col" class="table-header w-12">序号</th>
+                                        <th scope="col" class="table-header">词汇</th>
+                                        <th scope="col" class="table-header">雷州方言</th>
+                                        <th scope="col" class="table-header">惠来方言</th>
+                                        <th scope="col" class="table-header w-24 text-right">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vocabulary-table-body" class="bg-white divide-y divide-gray-200">
+                                    <!-- 词汇列表将通过JavaScript动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="empty-state" class="hidden px-6 py-12 text-center">
+                            <i class="fa fa-info-circle text-4xl text-gray-300 mb-4"></i>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">暂无词汇</h3>
+                            <p class="text-gray-500">点击"管理词汇"按钮添加词汇</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
     
-    fs.readFile(dataPath, 'utf8', (err, data) => {
-        if (err) {
-            console.error('读取数据文件失败:', err);
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: '读取数据失败' }));
-            return;
+    <!-- 编辑模态框 -->
+    <div id="edit-modal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">编辑词汇</h3>
+                <button id="close-modal-button" class="text-gray-400 hover:text-gray-500">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="edit-word" class="block text-sm font-medium text-gray-700 mb-1">词汇</label>
+                    <input type="text" id="edit-word" class="input-field" readonly>
+                </div>
+                <div>
+                    <label for="edit-leizhou" class="block text-sm font-medium text-gray-700 mb-1">雷州方言</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="edit-leizhou" class="input-field flex-1" placeholder="输入雷州方言发音或粘贴音频链接">
+                        <input type="file" id="upload-leizhou-audio" accept="audio/*" class="hidden">
+                        <button type="button" onclick="document.getElementById('upload-leizhou-audio').click()" class="btn-secondary text-sm" title="上传音频">
+                            <i class="fa fa-microphone"></i>
+                        </button>
+                    </div>
+                    <div id="leizhou-audio-info" class="hidden mt-1 text-xs text-green-600">
+                        <i class="fa fa-check-circle"></i> 音频文件已选择
+                    </div>
+                </div>
+                <div>
+                    <label for="edit-huilai" class="block text-sm font-medium text-gray-700 mb-1">惠来方言</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="edit-huilai" class="input-field flex-1" placeholder="输入惠来方言发音或粘贴音频链接">
+                        <input type="file" id="upload-huilai-audio" accept="audio/*" class="hidden">
+                        <button type="button" onclick="document.getElementById('upload-huilai-audio').click()" class="btn-secondary text-sm" title="上传音频">
+                            <i class="fa fa-microphone"></i>
+                        </button>
+                    </div>
+                    <div id="huilai-audio-info" class="hidden mt-1 text-xs text-green-600">
+                        <i class="fa fa-check-circle"></i> 音频文件已选择
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="cancel-edit-button" class="btn-secondary mr-3">
+                    取消
+                </button>
+                <button id="confirm-edit-button" class="btn-primary">
+                    确认
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 词汇管理模态框 -->
+    <div id="manage-words-modal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">管理词汇</h3>
+                <button id="close-manage-words-modal-button" class="text-gray-400 hover:text-gray-500">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="manage-category-name" class="block text-sm font-medium text-gray-700 mb-1">当前分类</label>
+                    <input type="text" id="manage-category-name" class="input-field bg-gray-100" readonly>
+                </div>
+                <div>
+                    <label for="new-vocabulary-word" class="block text-sm font-medium text-gray-700 mb-1">添加新词汇</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="new-vocabulary-word" class="input-field flex-1" placeholder="输入词汇">
+                        <button id="add-vocabulary-word-button" class="btn-primary">
+                            <i class="fa fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">词汇列表</label>
+                    <ul id="vocabulary-list" class="input-field bg-white max-h-60 overflow-y-auto">
+                        <!-- 词汇列表将通过JavaScript动态生成 -->
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="close-manage-words-button" class="btn-secondary">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加分类模态框 -->
+    <div id="add-category-modal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">添加分类</h3>
+                <button id="close-add-category-modal-button" class="text-gray-400 hover:text-gray-500">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="new-category-name" class="block text-sm font-medium text-gray-700 mb-1">分类名称</label>
+                    <input type="text" id="new-category-name" class="input-field" placeholder="输入分类名称">
+                </div>
+                <div>
+                    <label for="new-category-word" class="block text-sm font-medium text-gray-700 mb-1">添加词汇（一行一个）</label>
+                    <textarea id="new-category-word" rows="4" class="input-field" placeholder="苹果&#10;香蕉&#10;橙子"></textarea>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="cancel-add-category-button" class="btn-secondary mr-3">
+                    取消
+                </button>
+                <button id="confirm-add-category-button" class="btn-primary">
+                    添加
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 编辑分类模态框 -->
+    <div id="edit-category-modal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">编辑分类</h3>
+                <button id="close-edit-category-modal-button" class="text-gray-400 hover:text-gray-500">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="edit-category-name" class="block text-sm font-medium text-gray-700 mb-1">分类名称</label>
+                    <input type="text" id="edit-category-name" class="input-field" placeholder="输入分类名称">
+                </div>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                    <div class="flex items-start">
+                        <i class="fa fa-info-circle text-yellow-500 mt-0.5 mr-2"></i>
+                        <div>
+                            <p class="text-sm text-yellow-700 font-medium">注意事项</p>
+                            <p class="text-sm text-yellow-600 mt-1">重命名分类不会影响其中的词汇数据，但可能会影响已保存的外部链接。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="cancel-edit-category-button" class="btn-secondary mr-3">
+                    取消
+                </button>
+                <button id="confirm-edit-category-button" class="btn-primary">
+                    确认修改
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Excel模板说明模态框 -->
+    <div id="excel-template-modal" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Excel模板说明</h3>
+                <button id="close-template-button" class="text-gray-400 hover:text-gray-500">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">Excel文件格式要求：</h4>
+                    <ul class="list-disc pl-5 space-y-1 text-gray-700">
+                        <li>第一行必须包含以下列标题之一：</li>
+                        <li><strong>词汇</strong> 或 <strong>word</strong> - 必填，词汇名称</li>
+                        <li><strong>雷州方言</strong> 或 <strong>雷州</strong> - 可选，雷州方言发音或音频链接</li>
+                        <li><strong>惠来方言</strong> 或 <strong>惠来</strong> - 可选，惠来方言发音或音频链接</li>
+                        <li><strong>分类</strong> 或 <strong>category</strong> - 可选，分类名称，默认为"未分类"</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">示例数据：</h4>
+                    <div class="bg-gray-50 p-3 rounded-md font-mono text-sm">
+                        词汇,雷州方言,惠来方言,分类<br>
+                        苹果,https://samplelib.com/lib/preview/mp3/sample-5s.mp3,https://samplelib.com/lib/preview/mp3/sample-6s.mp3,水果类<br>
+                        香蕉,https://samplelib.com/lib/preview/mp3/sample-9s.mp3,,水果类<br>
+                        白菜,,,蔬菜类<br>
+                        猫,,,,动物类
+                    </div>
+                </div>
+                <div>
+                    <p class="text-gray-700">导入时，系统会自动合并数据，不会覆盖现有数据。</p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="close-excel-template-button" class="btn-secondary">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast提示 -->
+    <div id="toast" class="toast">
+        <div class="flex items-start">
+            <div id="toast-icon" class="flex-shrink-0 mr-3 mt-0.5">
+                <i class="fa fa-info-circle text-primary text-lg"></i>
+            </div>
+            <div class="flex-1">
+                <p id="toast-message" class="text-sm font-medium text-gray-900"></p>
+            </div>
+            <button id="close-toast" class="ml-4 text-gray-400 hover:text-gray-500">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- 应用脚本 -->
+    <script>
+        // 全局变量
+        let dialectData = {};
+        let currentEditWord = null;
+        let currentEditCategoryId = null;
+        let selectedLeizhouAudio = null;
+        let selectedHuilaiAudio = null;
+        // 音频播放相关变量
+        window.activeAudio = null;
+        window.activeAudioButton = null;
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化应用
+            initializeApp();
+        });
+        
+        // 初始化应用
+        function initializeApp() {
+            console.log('初始化方言学习平台...');
+            
+            // 绑定所有事件监听器
+            bindAllEventListeners();
+            
+            // 加载数据
+            loadData();
         }
         
-        res.writeHead(200, { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        });
-        res.end(data);
-    });
-}
-
-// 处理保存数据请求
-function handleSaveData(req, res) {
-    let body = '';
-    
-    req.on('data', (chunk) => {
-        body += chunk;
-    });
-    
-    req.on('end', () => {
-        try {
-            const data = JSON.parse(body);
-            const dataPath = './data.json';
+        // 绑定所有事件监听器
+        function bindAllEventListeners() {
+            console.log('绑定事件监听器...');
             
-            fs.writeFile(dataPath, JSON.stringify(data, null, 2), 'utf8', (err) => {
-                if (err) {
-                    console.error('保存数据文件失败:', err);
-                    res.writeHead(500, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: '保存数据失败' }));
+            // 管理词汇按钮
+            document.getElementById('manage-words-button').addEventListener('click', handleManageWordsClick);
+            
+            // 添加分类按钮
+            document.getElementById('add-category-button').addEventListener('click', function() {
+                document.getElementById('add-category-modal').classList.remove('hidden');
+            });
+            
+            // 保存数据按钮
+            document.getElementById('save-data-button').addEventListener('click', handleSaveData);
+            
+            // 导出数据按钮
+            document.getElementById('export-data-button').addEventListener('click', exportData);
+            
+            // 导入JSON数据
+            document.getElementById('import-data-input').addEventListener('change', importJsonData);
+            
+            // 导入Excel数据
+            document.getElementById('import-excel-input').addEventListener('change', importExcelData);
+            
+            // 显示Excel模板
+            document.getElementById('show-excel-template').addEventListener('click', function() {
+                document.getElementById('excel-template-modal').classList.remove('hidden');
+            });
+            
+            // 音频上传相关
+            document.getElementById('upload-leizhou-audio').addEventListener('change', function(e) {
+                handleAudioFileSelect(e, 'leizhou');
+            });
+            document.getElementById('upload-huilai-audio').addEventListener('change', function(e) {
+                handleAudioFileSelect(e, 'huilai');
+            });
+            
+            document.getElementById('close-manage-words-modal-button').addEventListener('click', function() {
+                document.getElementById('manage-words-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('close-manage-words-button').addEventListener('click', function() {
+                document.getElementById('manage-words-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('close-add-category-modal-button').addEventListener('click', function() {
+                document.getElementById('add-category-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('cancel-add-category-button').addEventListener('click', function() {
+                document.getElementById('add-category-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('confirm-add-category-button').addEventListener('click', addNewCategory);
+            
+            document.getElementById('close-template-button').addEventListener('click', function() {
+                document.getElementById('excel-template-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('close-excel-template-button').addEventListener('click', function() {
+                document.getElementById('excel-template-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('close-edit-category-modal-button').addEventListener('click', function() {
+                document.getElementById('edit-category-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('cancel-edit-category-button').addEventListener('click', function() {
+                document.getElementById('edit-category-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('confirm-edit-category-button').addEventListener('click', confirmEditCategory);
+            
+            document.getElementById('add-vocabulary-word-button').addEventListener('click', addVocabularyWord);
+            
+            document.getElementById('new-vocabulary-word').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addVocabularyWord();
+                }
+            });
+            
+            document.getElementById('close-modal-button').addEventListener('click', function() {
+                document.getElementById('edit-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('cancel-edit-button').addEventListener('click', function() {
+                document.getElementById('edit-modal').classList.add('hidden');
+            });
+            
+            document.getElementById('confirm-edit-button').addEventListener('click', confirmEdit);
+            
+            document.getElementById('close-toast').addEventListener('click', hideToast);
+            
+            document.getElementById('edit-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('manage-words-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('add-category-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('excel-template-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.add('hidden');
+                }
+            });
+            
+            document.getElementById('search-input').addEventListener('input', handleSearch);
+        }
+        
+        // 加载数据
+        function loadData() {
+            console.log('加载数据...');
+            
+            // 首先尝试从本地存储加载数据
+            const localData = localStorage.getItem('dialectData');
+            if (localData) {
+                try {
+                    dialectData = JSON.parse(localData);
+                    console.log('从本地存储加载数据成功');
+                    
+                    // 验证数据完整性
+                    if (!dialectData.categories || !Array.isArray(dialectData.categories)) {
+                        throw new Error('数据格式不正确');
+                    }
+                    
+                    console.log(`加载了 ${dialectData.categories.length} 个分类`);
+                    let totalWords = 0;
+                    let totalAudioFiles = 0;
+                    
+                    dialectData.categories.forEach(category => {
+                        totalWords += category.words ? category.words.length : 0;
+                        if (category.words) {
+                            category.words.forEach(word => {
+                                if (word.dialects) {
+                                    if (word.dialects['雷州方言'] && word.dialects['雷州方言'].startsWith('data:audio')) {
+                                        totalAudioFiles++;
+                                    }
+                                    if (word.dialects['惠来方言'] && word.dialects['惠来方言'].startsWith('data:audio')) {
+                                        totalAudioFiles++;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    
+                    console.log(`总共 ${totalWords} 个词汇，${totalAudioFiles} 个音频文件`);
+                    
+                    initializeUI();
+                    showToast(`从浏览器存储加载成功！共 ${totalWords} 个词汇`, 'success');
+                    return;
+                } catch (e) {
+                    console.error('解析本地存储数据失败:', e);
+                    showToast('浏览器存储数据损坏，尝试从data.json加载', 'warning');
+                }
+            }
+            
+            // 尝试从data.json文件加载数据
+            try {
+                fetch('data.json')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('data.json文件不存在');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('从data.json加载数据成功');
+                        dialectData = data;
+                        
+                        // 验证数据完整性
+                        if (!dialectData.categories || !Array.isArray(dialectData.categories)) {
+                            throw new Error('data.json格式不正确');
+                        }
+                        
+                        let totalWords = 0;
+                        dialectData.categories.forEach(category => {
+                            totalWords += category.words ? category.words.length : 0;
+                        });
+                        
+                        initializeUI();
+                        showToast(`从data.json加载成功！共 ${totalWords} 个词汇`, 'success');
+                        
+                        // 同时保存到localStorage
+                        saveDataToLocalStorage();
+                    })
+                    .catch(error => {
+                        console.error('从data.json加载失败:', error);
+                        // 使用默认数据
+                        dialectData = getDefaultData();
+                        console.log('使用默认数据:', dialectData);
+                        initializeUI();
+                        showToast('使用默认示例数据', 'info');
+                    });
+            } catch (error) {
+                console.error('加载data.json失败:', error);
+                // 使用默认数据
+                dialectData = getDefaultData();
+                console.log('使用默认数据:', dialectData);
+                initializeUI();
+                showToast('使用默认示例数据', 'info');
+            }
+        }
+        
+        // 获取默认数据
+        function getDefaultData() {
+            return {
+                "categories": [
+                    {
+                        "id": "fruits",
+                        "name": "水果类",
+                        "words": [
+                            {
+                                "id": 1,
+                                "word": "苹果",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-5s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-6s.mp3"
+                                }
+                            },
+                            {
+                                "id": 2,
+                                "word": "香蕉",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-9s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-12s.mp3"
+                                }
+                            },
+                            {
+                                "id": 3,
+                                "word": "橙子",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-15s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-19s.mp3"
+                                }
+                            },
+                            {
+                                "id": 4,
+                                "word": "葡萄",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-5s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-6s.mp3"
+                                }
+                            },
+                            {
+                                "id": 5,
+                                "word": "西瓜",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-9s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-12s.mp3"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "id": "animals",
+                        "name": "动物类",
+                        "words": [
+                            {
+                                "id": 1,
+                                "word": "猫",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-9s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-12s.mp3"
+                                }
+                            },
+                            {
+                                "id": 2,
+                                "word": "狗",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-15s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-19s.mp3"
+                                }
+                            },
+                            {
+                                "id": 3,
+                                "word": "鸡",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-5s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-6s.mp3"
+                                }
+                            },
+                            {
+                                "id": 4,
+                                "word": "鸭",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-9s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-12s.mp3"
+                                }
+                            },
+                            {
+                                "id": 5,
+                                "word": "牛",
+                                "dialects": {
+                                    "雷州方言": "https://samplelib.com/lib/preview/mp3/sample-15s.mp3",
+                                    "惠来方言": "https://samplelib.com/lib/preview/mp3/sample-19s.mp3"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            };
+        }
+        
+        // 初始化UI
+        function initializeUI() {
+            console.log('初始化UI...');
+            
+            // 更新分类导航
+            updateCategoryNav();
+            
+            // 加载第一个分类
+            if (dialectData.categories.length > 0) {
+                loadCategory(dialectData.categories[0].id);
+            }
+            
+            showToast('数据加载成功！', 'success');
+        }
+        
+        // 更新分类导航
+        function updateCategoryNav() {
+            const categoryNav = document.getElementById('category-nav');
+            categoryNav.innerHTML = '';
+            
+            dialectData.categories.forEach(category => {
+                const button = document.createElement('button');
+                button.id = `category-${category.id}`;
+                button.className = 'category-button';
+                button.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span>${category.name}</span>
+                        <div class="flex items-center space-x-1">
+                            <span class="text-xs text-gray-500 mr-2">${category.words.length}个词汇</span>
+                            <button class="text-gray-400 hover:text-primary p-1" onclick="editCategory('${category.id}')" title="编辑分类">
+                                <i class="fa fa-pencil"></i>
+                            </button>
+                            <button class="text-gray-400 hover:text-red-500 p-1" onclick="deleteCategory('${category.id}')" title="删除分类">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                button.addEventListener('click', function() {
+                    // 移除所有按钮的active类
+                    document.querySelectorAll('.category-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    // 添加当前按钮的active类
+                    this.classList.add('active');
+                    
+                    // 加载对应分类
+                    loadCategory(category.id);
+                });
+                
+                categoryNav.appendChild(button);
+            });
+            
+            // 选中第一个分类
+            if (categoryNav.querySelector('.category-button')) {
+                categoryNav.querySelector('.category-button').classList.add('active');
+            }
+        }
+        
+        // 加载分类
+        function loadCategory(categoryId) {
+            console.log('加载分类:', categoryId);
+            
+            const category = dialectData.categories.find(cat => cat.id === categoryId);
+            if (!category) {
+                console.error('找不到分类:', categoryId);
+                return;
+            }
+            
+            // 更新分类标题
+            document.getElementById('category-title').textContent = category.name;
+            
+            // 更新词汇表格
+            updateVocabularyTable(category);
+        }
+        
+        // 更新词汇表格
+        function updateVocabularyTable(category) {
+            const tableBody = document.getElementById('vocabulary-table-body');
+            const emptyState = document.getElementById('empty-state');
+            
+            tableBody.innerHTML = '';
+            
+            if (category.words.length === 0) {
+                tableBody.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            tableBody.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            
+            category.words.forEach((word, index) => {
+                const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                // 检查是否有音频链接
+                const leizhouValue = word.dialects && word.dialects['雷州方言'] ? word.dialects['雷州方言'] : '';
+                const huilaiValue = word.dialects && word.dialects['惠来方言'] ? word.dialects['惠来方言'] : '';
+                const hasLeizhouAudio = leizhouValue && (leizhouValue.startsWith('http') || leizhouValue.startsWith('data:audio'));
+                const hasHuilaiAudio = huilaiValue && (huilaiValue.startsWith('http') || huilaiValue.startsWith('data:audio'));
+                
+                row.innerHTML = `
+                    <td class="table-cell">${index + 1}</td>
+                    <td class="table-cell font-medium">${word.word}</td>
+                    <td class="table-cell">
+                        <div class="flex items-center">
+                            ${hasLeizhouAudio ? 
+                                `<button class="audio-button" data-audio="${leizhouValue}" onclick="window.playAudio(this)">
+                                    <i class="fa fa-volume-up"></i>
+                                </button>` : 
+                                (leizhouValue ? `<span class="text-sm">${leizhouValue}</span>` : '<span class="text-gray-400">-</span>')
+                            }
+                        </div>
+                    </td>
+                    <td class="table-cell">
+                        <div class="flex items-center">
+                            ${hasHuilaiAudio ? 
+                                `<button class="audio-button" data-audio="${huilaiValue}" onclick="window.playAudio(this)">
+                                    <i class="fa fa-volume-up"></i>
+                                </button>` : 
+                                (huilaiValue ? `<span class="text-sm">${huilaiValue}</span>` : '<span class="text-gray-400">-</span>')
+                            }
+                        </div>
+                    </td>
+                    <td class="table-cell text-right">
+                        <button class="text-primary hover:text-primary/80 focus:outline-none" onclick="editWord('${category.id}', ${word.id})">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // 处理管理词汇按钮点击
+        function handleManageWordsClick() {
+            const activeCategoryButton = document.querySelector('.category-button.active');
+            if (!activeCategoryButton) return;
+            
+            const categoryId = activeCategoryButton.id.replace('category-', '');
+            const category = dialectData.categories.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            document.getElementById('manage-category-name').value = category.name;
+            updateVocabularyList(category);
+            
+            document.getElementById('manage-words-modal').classList.remove('hidden');
+        }
+        
+        // 更新词汇列表
+        function updateVocabularyList(category) {
+            const vocabularyList = document.getElementById('vocabulary-list');
+            vocabularyList.innerHTML = '';
+            
+            category.words.forEach(word => {
+                const li = document.createElement('li');
+                li.className = 'px-3 py-2 border-b border-gray-200 last:border-b-0';
+                li.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span>${word.word}</span>
+                        <button class="text-red-500 hover:text-red-700 focus:outline-none" onclick="deleteWord('${category.id}', ${word.id})">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                vocabularyList.appendChild(li);
+            });
+        }
+        
+        // 添加词汇
+        function addVocabularyWord() {
+            const wordInput = document.getElementById('new-vocabulary-word');
+            const wordText = wordInput.value.trim();
+            
+            if (!wordText) {
+                showToast('请输入词汇', 'warning');
+                return;
+            }
+            
+            const activeCategoryButton = document.querySelector('.category-button.active');
+            if (!activeCategoryButton) return;
+            
+            const categoryId = activeCategoryButton.id.replace('category-', '');
+            const category = dialectData.categories.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            // 检查词汇是否已存在
+            if (category.words.some(w => w.word === wordText)) {
+                showToast('词汇已存在', 'warning');
+                return;
+            }
+            
+            // 生成新的词汇ID
+            const newWordId = category.words.length > 0 ? Math.max(...category.words.map(w => w.id)) + 1 : 1;
+            
+            // 添加新词汇
+            category.words.push({
+                id: newWordId,
+                word: wordText,
+                dialects: {}
+            });
+            
+            // 保存数据
+            if (saveDataToLocalStorage()) {
+                wordInput.value = '';
+                updateVocabularyList(category);
+                loadCategory(categoryId);
+                showToast('词汇添加成功！', 'success');
+            }
+        }
+        
+        // 删除词汇
+        window.deleteWord = function(categoryId, wordId) {
+            if (!confirm('确定要删除这个词汇吗？')) return;
+            
+            const category = dialectData.categories.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            const wordIndex = category.words.findIndex(w => w.id === wordId);
+            if (wordIndex === -1) return;
+            
+            category.words.splice(wordIndex, 1);
+            
+            if (saveDataToLocalStorage()) {
+                updateVocabularyList(category);
+                loadCategory(categoryId);
+                showToast('词汇删除成功！', 'success');
+            }
+        };
+        
+        // 编辑词汇
+        window.editWord = function(categoryId, wordId) {
+            const category = dialectData.categories.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            const word = category.words.find(w => w.id === wordId);
+            if (!word) return;
+            
+            currentEditWord = { categoryId, wordId };
+            
+            document.getElementById('edit-word').value = word.word;
+            document.getElementById('edit-leizhou').value = word.dialects && word.dialects['雷州方言'] ? word.dialects['雷州方言'] : '';
+            document.getElementById('edit-huilai').value = word.dialects && word.dialects['惠来方言'] ? word.dialects['惠来方言'] : '';
+            
+            // 清空之前选择的音频文件
+            selectedLeizhouAudio = null;
+            selectedHuilaiAudio = null;
+            document.getElementById('leizhou-audio-info').classList.add('hidden');
+            document.getElementById('huilai-audio-info').classList.add('hidden');
+            document.getElementById('upload-leizhou-audio').value = '';
+            document.getElementById('upload-huilai-audio').value = '';
+            
+            document.getElementById('edit-modal').classList.remove('hidden');
+        };
+        
+        // 处理音频文件选择
+        function handleAudioFileSelect(event, dialectType) {
+            const file = event.target.files[0];
+            if (file) {
+                // 检查文件类型
+                if (!file.type.startsWith('audio/')) {
+                    showToast('请选择音频文件', 'warning');
+                    event.target.value = '';
                     return;
                 }
                 
-                console.log('数据保存成功!');
-                res.writeHead(200, { 
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                });
-                res.end(JSON.stringify({ success: true, message: '数据保存成功' }));
-            });
-        } catch (error) {
-            console.error('解析数据失败:', error);
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: '数据格式错误' }));
+                // 检查文件大小
+                if (file.size > 2 * 1024 * 1024) { // 2MB限制
+                    showToast(`音频文件太大 (${formatFileSize(file.size)})，请选择小于2MB的文件`, 'warning');
+                    event.target.value = '';
+                    return;
+                }
+                
+                if (dialectType === 'leizhou') {
+                    selectedLeizhouAudio = file;
+                    const infoDiv = document.getElementById('leizhou-audio-info');
+                    infoDiv.innerHTML = `<i class="fa fa-check-circle"></i> 音频文件已选择 (${formatFileSize(file.size)})`;
+                    infoDiv.classList.remove('hidden');
+                } else if (dialectType === 'huilai') {
+                    selectedHuilaiAudio = file;
+                    const infoDiv = document.getElementById('huilai-audio-info');
+                    infoDiv.innerHTML = `<i class="fa fa-check-circle"></i> 音频文件已选择 (${formatFileSize(file.size)})`;
+                    infoDiv.classList.remove('hidden');
+                }
+                
+                // 显示提示信息
+                showToast('音频文件已选择，请点击"确认"按钮保存', 'info');
+            }
         }
-    });
-}
-
-// 启动服务器
-server.listen(PORT, HOST, () => {
-    console.log(`\n========================================`);
-    console.log(`方言学习平台服务器已启动!`);
-    console.log(`访问地址: http://${HOST}:${PORT}`);
-    console.log(`API接口:`);
-    console.log(`  - GET  http://${HOST}:${PORT}/api/data  (获取数据)`);
-    console.log(`  - POST http://${HOST}:${PORT}/api/data  (保存数据)`);
-    console.log(`========================================\n`);
-});
-
-// 服务器错误处理
-server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-        console.error(`端口 ${PORT} 已被占用，请关闭其他占用该端口的程序后重试。`);
-    } else {
-        console.error('服务器启动失败:', error);
-    }
-    process.exit(1);
-});
-
-// 优雅关闭
-process.on('SIGINT', () => {
-    console.log('\n正在关闭服务器...');
-    server.close(() => {
-        console.log('服务器已关闭');
-        process.exit(0);
-    });
-});
+        
+        // 确认编辑
+        function confirmEdit() {
+            if (!currentEditWord) return;
+            
+            const { categoryId, wordId } = currentEditWord;
+            const category = dialectData.categories.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            const word = category.words.find(w => w.id === wordId);
+            if (!word) return;
+            
+            const leizhouValue = document.getElementById('edit-leizhou').value.trim();
+            const huilaiValue = document.getElementById('edit-huilai').value.trim();
+            
+            // 确保word.dialects对象存在
+            if (!word.dialects) {
+                word.dialects = {};
+            }
+            
+            // 保存文本值
+            word.dialects['雷州方言'] = leizhouValue;
+            word.dialects['惠来方言'] = huilaiValue;
+            
+            // 处理音频文件上传
+            const audioPromises = [];
+            
+            if (selectedLeizhouAudio) {
+                audioPromises.push(
+                    new Promise((resolve, reject) => {
+                        // 检查文件大小
+                        if (selectedLeizhouAudio.size > 2 * 1024 * 1024) { // 2MB限制
+                            showToast('雷州方言音频文件太大，请选择小于2MB的文件', 'warning');
+                            resolve(); // 继续处理，但不上传大文件
+                            return;
+                        }
+                        
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            word.dialects['雷州方言'] = e.target.result;
+                            resolve();
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(selectedLeizhouAudio);
+                    })
+                );
+            }
+            
+            if (selectedHuilaiAudio) {
+                audioPromises.push(
+                    new Promise((resolve, reject) => {
+                        // 检查文件大小
+                        if (selectedHuilaiAudio.size > 2 * 1024 * 1024) { // 2MB限制
+                            showToast('惠来方言音频文件太大，请选择小于2MB的文件', 'warning');
+                            resolve(); // 继续处理，但不上传大文件
+                            return;
+                        }
+                        
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            word.dialects['惠来方言'] = e.target.result;
+                            resolve();
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(selectedHuilaiAudio);
+                    })
+                );
+            }
+            
+            // 等待所有音频处理完成
+            Promise.all(audioPromises).then(() => {
+                if (saveDataToLocalStorage()) {
+                    document.getElementById('edit-modal').classList.add('hidden');
+                    showToast('词汇更新成功！', 'success');
+                    loadCategory(categoryId);
+                    
+                    // 清空选择的音频文件
+                    selectedLeizhouAudio = null;
+                    selectedHuilaiAudio = null;
+                    document.getElementById('leizhou-audio-info').classList.add('hidden');
+                    document.getElementById('huilai-audio-info').classList.add('hidden');
+                    document.getElementById('upload-leizhou-audio').value = '';
+                    document.getElementById('upload-huilai-audio').value = '';
+                }
+            }).catch(error => {
+                console.error('音频处理失败:', error);
+                showToast('音频上传失败，请重试', 'error');
+            });
+        }
+        
+        // 播放音频
+        window.playAudio = function(button) {
+            const audioUrl = button.getAttribute('data-audio');
+            if (!audioUrl) return;
+            
+            console.log('播放音频:', audioUrl.substring(0, 100) + (audioUrl.length > 100 ? '...' : ''));
+            
+            // 停止当前播放的音频
+            if (window.activeAudio) {
+                window.activeAudio.pause();
+                window.activeAudio = null;
+            }
+            
+            if (window.activeAudioButton) {
+                window.activeAudioButton.classList.remove('playing');
+                window.activeAudioButton = null;
+            }
+            
+            try {
+                // 创建新的Audio元素
+                const audio = new Audio();
+                
+                // 设置音频源
+                audio.src = audioUrl;
+                
+                // 设置播放结束事件
+                audio.onended = function() {
+                    button.classList.remove('playing');
+                    window.activeAudio = null;
+                    window.activeAudioButton = null;
+                    console.log('音频播放结束');
+                };
+                
+                // 设置错误处理
+                audio.onerror = function(error) {
+                    console.error('音频播放错误:', error);
+                    button.classList.remove('playing');
+                    window.activeAudio = null;
+                    window.activeAudioButton = null;
+                    
+                    // 根据错误类型显示不同的提示
+                    if (audioUrl.startsWith('http')) {
+                        showToast('音频链接无法访问，请检查网络连接或链接有效性', 'error');
+                    } else if (audioUrl.startsWith('data:audio')) {
+                        showToast('音频数据可能已损坏，请重新上传', 'error');
+                    } else {
+                        showToast('音频播放失败', 'error');
+                    }
+                };
+                
+                // 设置加载事件
+                audio.oncanplaythrough = function() {
+                    console.log('音频可以播放，开始播放');
+                    audio.play().catch(playError => {
+                        console.error('播放失败:', playError);
+                        button.classList.remove('playing');
+                        showToast('播放失败: ' + playError.message, 'error');
+                    });
+                };
+                
+                // 设置加载失败事件
+                audio.onloaderror = function() {
+                    console.error('音频加载失败');
+                    button.classList.remove('playing');
+                    showToast('音频文件无法加载', 'error');
+                };
+                
+                // 开始加载音频
+                audio.load();
+                
+                // 记录当前播放的音频和按钮
+                window.activeAudio = audio;
+                window.activeAudioButton = button;
+                button.classList.add('playing');
+                
+                console.log('音频加载开始');
+                
+            } catch (error) {
+                console.error('创建音频播放器失败:', error);
+                button.classList.remove('playing');
+                showToast('音频播放器初始化失败', 'error');
+            }
+        };
+        
+        // 添加分类
+        function addNewCategory() {
+            const categoryNameInput = document.getElementById('new-category-name');
+            const wordsTextarea = document.getElementById('new-category-word');
+            
+            const categoryName = categoryNameInput.value.trim();
+            const wordsText = wordsTextarea.value.trim();
+            
+            if (!categoryName) {
+                showToast('请输入分类名称', 'warning');
+                return;
+            }
+            
+            // 检查分类是否已存在
+            if (dialectData.categories.some(cat => cat.name === categoryName)) {
+                showToast('分类已存在', 'warning');
+                return;
+            }
+            
+            // 生成分类ID
+            const categoryId = categoryName.toLowerCase().replace(/\s+/g, '_');
+            
+            // 创建新分类
+            const newCategory = {
+                id: categoryId,
+                name: categoryName,
+                words: []
+            };
+            
+            // 添加词汇
+            if (wordsText) {
+                const words = wordsText.split('\n').filter(word => word.trim());
+                words.forEach((wordText, index) => {
+                    newCategory.words.push({
+                        id: index + 1,
+                        word: wordText.trim(),
+                        dialects: {}
+                    });
+                });
+            }
+            
+            // 添加分类
+            dialectData.categories.push(newCategory);
+            
+            // 保存数据
+            if (saveDataToLocalStorage()) {
+                categoryNameInput.value = '';
+                wordsTextarea.value = '';
+                document.getElementById('add-category-modal').classList.add('hidden');
+                
+                // 更新分类导航
+                updateCategoryNav();
+                
+                // 选中新分类
+                const newCategoryButton = document.getElementById(`category-${categoryId}`);
+                if (newCategoryButton) {
+                    document.querySelectorAll('.category-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    newCategoryButton.classList.add('active');
+                    loadCategory(categoryId);
+                }
+                
+                showToast('分类添加成功！', 'success');
+            }
+        }
+        
+        // 编辑分类
+        window.editCategory = function(categoryId) {
+            const category = dialectData.categories.find(cat => cat.id === categoryId);
+            if (!category) return;
+            
+            currentEditCategoryId = categoryId;
+            document.getElementById('edit-category-name').value = category.name;
+            document.getElementById('edit-category-modal').classList.remove('hidden');
+        };
+        
+        // 确认编辑分类
+        function confirmEditCategory() {
+            if (!currentEditCategoryId) return;
+            
+            const categoryName = document.getElementById('edit-category-name').value.trim();
+            if (!categoryName) {
+                showToast('请输入分类名称', 'warning');
+                return;
+            }
+            
+            const category = dialectData.categories.find(cat => cat.id === currentEditCategoryId);
+            if (!category) return;
+            
+            // 检查分类名称是否已存在
+            if (dialectData.categories.some(cat => cat.id !== currentEditCategoryId && cat.name === categoryName)) {
+                showToast('分类名称已存在', 'warning');
+                return;
+            }
+            
+            category.name = categoryName;
+            
+            if (saveDataToLocalStorage()) {
+                document.getElementById('edit-category-modal').classList.add('hidden');
+                updateCategoryNav();
+                loadCategory(currentEditCategoryId);
+                showToast('分类更新成功！', 'success');
+                currentEditCategoryId = null;
+            }
+        }
+        
+        // 删除分类
+        window.deleteCategory = function(categoryId) {
+            if (!confirm('确定要删除这个分类吗？所有词汇也将被删除！')) return;
+            
+            const categoryIndex = dialectData.categories.findIndex(cat => cat.id === categoryId);
+            if (categoryIndex === -1) return;
+            
+            dialectData.categories.splice(categoryIndex, 1);
+            
+            if (saveDataToLocalStorage()) {
+                updateCategoryNav();
+                
+                // 加载第一个分类
+                if (dialectData.categories.length > 0) {
+                    loadCategory(dialectData.categories[0].id);
+                } else {
+                    document.getElementById('category-title').textContent = '';
+                    document.getElementById('vocabulary-table-body').innerHTML = '';
+                    document.getElementById('vocabulary-table-body').classList.add('hidden');
+                    document.getElementById('empty-state').classList.remove('hidden');
+                }
+                
+                showToast('分类删除成功！', 'success');
+            }
+        };
+        
+        // 保存数据到本地存储
+        function saveDataToLocalStorage() {
+            try {
+                // 检查localStorage使用情况
+                const dataStr = JSON.stringify(dialectData);
+                const dataSize = new Blob([dataStr]).size;
+                const localStorageSize = estimateLocalStorageSize();
+                
+                // 统计音频文件数量
+                let totalAudioFiles = 0;
+                dialectData.categories.forEach(category => {
+                    if (category.words) {
+                        category.words.forEach(word => {
+                            if (word.dialects) {
+                                if (word.dialects['雷州方言'] && word.dialects['雷州方言'].startsWith('data:audio')) {
+                                    totalAudioFiles++;
+                                }
+                                if (word.dialects['惠来方言'] && word.dialects['惠来方言'].startsWith('data:audio')) {
+                                    totalAudioFiles++;
+                                }
+                            }
+                        });
+                    }
+                });
+                
+                console.log(`数据大小: ${formatFileSize(dataSize)}`);
+                console.log(`LocalStorage已使用: ${formatFileSize(localStorageSize)}`);
+                console.log(`LocalStorage可用空间: ${formatFileSize(5 * 1024 * 1024 - localStorageSize)}`);
+                console.log(`包含音频文件: ${totalAudioFiles} 个`);
+                
+                // 检查是否超出localStorage限制
+                if (dataSize > 5 * 1024 * 1024) { // 5MB限制
+                    showToast('数据过大，无法保存到本地存储', 'error');
+                    return false;
+                }
+                
+                // 尝试保存数据
+                localStorage.setItem('dialectData', dataStr);
+                console.log('数据已保存到本地存储');
+                
+                // 验证保存是否成功
+                const savedData = localStorage.getItem('dialectData');
+                if (!savedData) {
+                    throw new Error('保存的数据为空');
+                }
+                
+                // 验证数据完整性
+                const parsedData = JSON.parse(savedData);
+                if (!parsedData.categories || !Array.isArray(parsedData.categories)) {
+                    throw new Error('保存的数据格式不正确');
+                }
+                
+                console.log('数据保存验证成功');
+                return true;
+            } catch (error) {
+                console.error('保存数据到本地存储失败:', error);
+                
+                // 根据错误类型显示不同的提示
+                if (error.name === 'QuotaExceededError' || error.message.includes('quota') || error.message.includes('Quota')) {
+                    showToast('存储空间不足，请删除部分音频文件后重试', 'error');
+                } else {
+                    showToast('保存数据失败: ' + error.message, 'error');
+                }
+                
+                return false;
+            }
+        }
+        
+        // 估算LocalStorage使用大小
+        function estimateLocalStorageSize() {
+            let totalSize = 0;
+            for (let key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    totalSize += localStorage[key].length + key.length;
+                }
+            }
+            return totalSize;
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // 保存数据到文件
+        function saveDataToFile() {
+            return new Promise((resolve, reject) => {
+                // 由于没有服务器，这里只是模拟保存
+                console.log('模拟保存数据到服务器');
+                setTimeout(() => {
+                    resolve();
+                }, 100);
+            });
+        }
+        
+        // 导出数据
+        function exportData() {
+            try {
+                const dataStr = JSON.stringify(dialectData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `dialect_data_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showToast('数据导出成功！', 'success');
+            } catch (error) {
+                console.error('导出数据失败:', error);
+                showToast('导出数据失败，请重试', 'error');
+            }
+        }
+        
+        // 导入JSON数据
+        function importJsonData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // 验证数据格式
+                    if (!importedData.categories || !Array.isArray(importedData.categories)) {
+                        showToast('数据格式不正确', 'error');
+                        return;
+                    }
+                    
+                    // 统计导入的数据
+                    let totalCategories = importedData.categories.length;
+                    let totalWords = 0;
+                    let totalAudioFiles = 0;
+                    
+                    importedData.categories.forEach(category => {
+                        totalWords += category.words ? category.words.length : 0;
+                        if (category.words) {
+                            category.words.forEach(word => {
+                                if (word.dialects) {
+                                    if (word.dialects['雷州方言'] && word.dialects['雷州方言'].startsWith('data:audio')) {
+                                        totalAudioFiles++;
+                                    }
+                                    if (word.dialects['惠来方言'] && word.dialects['惠来方言'].startsWith('data:audio')) {
+                                        totalAudioFiles++;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    
+                    // 检查数据大小
+                    const dataStr = JSON.stringify(importedData);
+                    const dataSize = new Blob([dataStr]).size;
+                    
+                    console.log(`导入数据统计: ${totalCategories} 个分类, ${totalWords} 个词汇, ${totalAudioFiles} 个音频文件, 大小: ${formatFileSize(dataSize)}`);
+                    
+                    // 询问用户是替换还是合并
+                    const replaceData = confirm(`发现 ${totalCategories} 个分类, ${totalWords} 个词汇, ${totalAudioFiles} 个音频文件。\n\n选择"确定"替换现有数据，选择"取消"合并到现有数据中。`);
+                    
+                    if (replaceData) {
+                        // 替换数据
+                        dialectData = importedData;
+                    } else {
+                        // 合并数据
+                        importedData.categories.forEach(importedCategory => {
+                            const existingCategory = dialectData.categories.find(cat => cat.id === importedCategory.id);
+                            if (existingCategory) {
+                                // 合并词汇，避免重复ID
+                                const existingIds = new Set(existingCategory.words.map(w => w.id));
+                                importedCategory.words.forEach(importedWord => {
+                                    if (!existingIds.has(importedWord.id)) {
+                                        existingCategory.words.push(importedWord);
+                                        existingIds.add(importedWord.id);
+                                    }
+                                });
+                            } else {
+                                dialectData.categories.push(importedCategory);
+                            }
+                        });
+                    }
+                    
+                    if (saveDataToLocalStorage()) {
+                        updateCategoryNav();
+                        
+                        // 加载第一个分类
+                        if (dialectData.categories.length > 0) {
+                            loadCategory(dialectData.categories[0].id);
+                        }
+                        
+                        showToast(`数据导入成功！\n分类: ${totalCategories}\n词汇: ${totalWords}\n音频文件: ${totalAudioFiles}`, 'success');
+                    } else {
+                        showToast('数据导入成功但保存失败，请检查存储空间', 'warning');
+                    }
+                } catch (error) {
+                    console.error('导入数据失败:', error);
+                    showToast('导入数据失败: ' + error.message, 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                showToast('读取文件失败', 'error');
+            };
+            
+            reader.readAsText(file);
+            
+            // 清空文件输入
+            event.target.value = '';
+        }
+        
+        // 导入Excel数据
+        function importExcelData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    // 处理导入的数据
+                    const categories = {};
+                    
+                    jsonData.forEach(row => {
+                        // 获取词汇
+                        const word = row['词汇'] || row['word'];
+                        if (!word) return;
+                        
+                        // 获取分类
+                        let categoryName = row['分类'] || row['category'] || '未分类';
+                        if (!categories[categoryName]) {
+                            categories[categoryName] = {
+                                id: categoryName.toLowerCase().replace(/\s+/g, '_'),
+                                name: categoryName,
+                                words: []
+                            };
+                        }
+                        
+                        // 获取方言数据
+                        const leizhou = row['雷州方言'] || row['雷州'] || '';
+                        const huilai = row['惠来方言'] || row['惠来'] || '';
+                        
+                        // 创建词汇对象
+                        const wordObj = {
+                            id: categories[categoryName].words.length + 1,
+                            word: word,
+                            dialects: {}
+                        };
+                        
+                        if (leizhou) wordObj.dialects['雷州方言'] = leizhou;
+                        if (huilai) wordObj.dialects['惠来方言'] = huilai;
+                        
+                        categories[categoryName].words.push(wordObj);
+                    });
+                    
+                    // 合并到现有数据
+                    Object.values(categories).forEach(category => {
+                        const existingCategory = dialectData.categories.find(cat => cat.id === category.id);
+                        if (existingCategory) {
+                            // 合并词汇
+                            category.words.forEach(word => {
+                                const existingWord = existingCategory.words.find(w => w.word === word.word);
+                                if (!existingWord) {
+                                    word.id = existingCategory.words.length > 0 ? Math.max(...existingCategory.words.map(w => w.id)) + 1 : 1;
+                                    existingCategory.words.push(word);
+                                }
+                            });
+                        } else {
+                            dialectData.categories.push(category);
+                        }
+                    });
+                    
+                    if (saveDataToLocalStorage()) {
+                        updateCategoryNav();
+                        
+                        // 加载第一个分类
+                        if (dialectData.categories.length > 0) {
+                            loadCategory(dialectData.categories[0].id);
+                        }
+                        
+                        showToast('Excel数据导入成功！', 'success');
+                    }
+                } catch (error) {
+                    console.error('导入Excel数据失败:', error);
+                    showToast('导入Excel数据失败，请检查文件格式', 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                showToast('读取Excel文件失败', 'error');
+            };
+            
+            reader.readAsArrayBuffer(file);
+            
+            // 清空文件输入
+            event.target.value = '';
+        }
+        
+        // 处理搜索
+        function handleSearch() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+            if (!searchTerm) {
+                // 如果搜索词为空，恢复显示当前分类的所有词汇
+                const activeCategoryButton = document.querySelector('.category-button.active');
+                if (activeCategoryButton) {
+                    const categoryId = activeCategoryButton.id.replace('category-', '');
+                    loadCategory(categoryId);
+                }
+                return;
+            }
+            
+            // 搜索所有分类中的词汇
+            const searchResults = [];
+            dialectData.categories.forEach(category => {
+                category.words.forEach(word => {
+                    if (word.word.toLowerCase().includes(searchTerm)) {
+                        searchResults.push({
+                            categoryId: category.id,
+                            categoryName: category.name,
+                            word: word
+                        });
+                    }
+                });
+            });
+            
+            // 更新UI显示搜索结果
+            const tableBody = document.getElementById('vocabulary-table-body');
+            const emptyState = document.getElementById('empty-state');
+            const categoryTitle = document.getElementById('category-title');
+            
+            tableBody.innerHTML = '';
+            categoryTitle.textContent = `搜索结果 (${searchResults.length})`;
+            
+            if (searchResults.length === 0) {
+                tableBody.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            tableBody.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            
+            searchResults.forEach((result, index) => {
+                const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                const leizhouValue = result.word.dialects && result.word.dialects['雷州方言'] ? result.word.dialects['雷州方言'] : '';
+                const huilaiValue = result.word.dialects && result.word.dialects['惠来方言'] ? result.word.dialects['惠来方言'] : '';
+                const hasLeizhouAudio = leizhouValue && (leizhouValue.startsWith('http') || leizhouValue.startsWith('data:audio'));
+                const hasHuilaiAudio = huilaiValue && (huilaiValue.startsWith('http') || huilaiValue.startsWith('data:audio'));
+                
+                row.innerHTML = `
+                    <td class="table-cell">${index + 1}</td>
+                    <td class="table-cell font-medium">
+                        ${result.word.word}
+                        <span class="text-xs text-gray-500 ml-2">(${result.categoryName})</span>
+                    </td>
+                    <td class="table-cell">
+                        <div class="flex items-center">
+                            ${hasLeizhouAudio ? 
+                                `<button class="audio-button" data-audio="${leizhouValue}" onclick="window.playAudio(this)">
+                                    <i class="fa fa-volume-up"></i>
+                                </button>` : 
+                                (leizhouValue ? `<span class="text-sm">${leizhouValue}</span>` : '<span class="text-gray-400">-</span>')
+                            }
+                        </div>
+                    </td>
+                    <td class="table-cell">
+                        <div class="flex items-center">
+                            ${hasHuilaiAudio ? 
+                                `<button class="audio-button" data-audio="${huilaiValue}" onclick="window.playAudio(this)">
+                                    <i class="fa fa-volume-up"></i>
+                                </button>` : 
+                                (huilaiValue ? `<span class="text-sm">${huilaiValue}</span>` : '<span class="text-gray-400">-</span>')
+                            }
+                        </div>
+                    </td>
+                    <td class="table-cell text-right">
+                        <button class="text-primary hover:text-primary/80 focus:outline-none" onclick="editWord('${result.categoryId}', ${result.word.id})">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // 显示Toast提示
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon').querySelector('i');
+            
+            toastMessage.textContent = message;
+            
+            // 设置图标和样式
+            toast.className = 'toast';
+            switch (type) {
+                case 'success':
+                    toast.classList.add('toast-success');
+                    toastIcon.className = 'fa fa-check-circle text-green-500 text-lg';
+                    break;
+                case 'error':
+                    toast.classList.add('toast-error');
+                    toastIcon.className = 'fa fa-times-circle text-red-500 text-lg';
+                    break;
+                case 'warning':
+                    toast.classList.add('toast-warning');
+                    toastIcon.className = 'fa fa-exclamation-triangle text-yellow-500 text-lg';
+                    break;
+                default:
+                    toastIcon.className = 'fa fa-info-circle text-primary text-lg';
+            }
+            
+            toast.classList.add('show');
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                hideToast();
+            }, 3000);
+        }
+        
+        // 隐藏Toast提示
+        function hideToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('show');
+        }
+        
+        // 处理保存数据
+        function handleSaveData() {
+            // 在保存前检查数据大小
+            const dataStr = JSON.stringify(dialectData);
+            const dataSize = new Blob([dataStr]).size;
+            
+            if (dataSize > 4 * 1024 * 1024) { // 4MB警告
+                if (!confirm(`数据大小为 ${formatFileSize(dataSize)}，可能会导致localStorage保存失败。建议删除部分音频文件或使用JSON文件保存。是否继续？`)) {
+                    return;
+                }
+            }
+            
+            // 保存到localStorage
+            const localStorageSuccess = saveDataToLocalStorage();
+            
+            // 同时下载JSON文件
+            downloadJsonFile();
+            
+            if (localStorageSuccess) {
+                showToast(`数据保存成功！\n1. 已保存到浏览器存储\n2. JSON文件已下载\n数据大小: ${formatFileSize(dataSize)}`, 'success');
+            } else {
+                showToast(`LocalStorage保存失败，但JSON文件已下载。请妥善保存JSON文件以便后续导入。`, 'warning');
+            }
+        }
+        
+        // 下载JSON文件
+        function downloadJsonFile() {
+            try {
+                const dataStr = JSON.stringify(dialectData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `dialect_data_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                console.log('JSON文件下载成功');
+            } catch (error) {
+                console.error('下载JSON文件失败:', error);
+                showToast('下载JSON文件失败', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
